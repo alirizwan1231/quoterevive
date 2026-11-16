@@ -238,6 +238,11 @@ td select { border-radius: 999px; font-size: 0.86rem; font-weight: 700; }
   border-bottom: 1px solid var(--line);
 }
 .topbar .wrap { display: flex; align-items: center; justify-content: space-between; padding-top: 13px; padding-bottom: 13px; gap: 12px; flex-wrap: wrap; }
+.nav-auth { display: flex; gap: 8px; align-items: center; flex: none; }
+@media (max-width: 480px) {
+  .nav-auth .btn.small { padding: 8px 13px; font-size: 0.84rem; }
+  .topbar .wrap { padding-top: 10px; padding-bottom: 10px; }
+}
 .logo {
   font-family: var(--font-display), sans-serif; font-size: 1.42rem; font-weight: 800;
   letter-spacing: -0.02em; color: var(--ink); text-decoration: none;

@@ -303,6 +303,39 @@ export interface Stats {
   revivedValue: number;
 }
 
+// ---- Auth validation (pure helpers used by the sign-up / log-in forms) ----
+export interface SignupInput {
+  name: string;
+  businessName: string;
+  trade: string;
+  email: string;
+  password: string;
+}
+
+/** Returns an error message, or null when the sign-up input is acceptable.
+    The testing build keeps ONE account on this device: signing up again with
+    the same email as the saved account is rejected, so the existing quotes
+    and campaign data are never silently overwritten by a fresh blank account. */
+export function validateSignup(input: SignupInput, existing: Account | null): string | null {
+  const name = input.name.trim();
+  const businessName = input.businessName.trim();
+  const email = input.email.trim();
+  if (!name || !businessName || !email || input.password.length < 4) {
+    return "Please fill in every field (password at least 4 characters).";
+  }
+  if (existing && existing.email.toLowerCase() === email.toLowerCase()) {
+    return "An account with this email is already saved on this device. Log in instead — signing up again would wipe its quotes and campaigns.";
+  }
+  return null;
+}
+
+/** Returns an error message, or null when the credentials match the saved account. */
+export function validateLogin(email: string, password: string, account: Account | null): string | null {
+  if (!account) return "No account found on this device yet — please sign up first, or use the demo.";
+  if (account.email.toLowerCase() === email.trim().toLowerCase() && account.password === password) return null;
+  return "Email or password does not match the account saved on this device.";
+}
+
 export function computeStats(quotes: Quote[], touches: Touch[]): Stats {
   const bookedQuotes = quotes.filter((q) => q.status === "Booked" || q.reply === "Booked");
   return {

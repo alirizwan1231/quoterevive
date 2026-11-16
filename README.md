@@ -30,6 +30,13 @@ This build stores the account and all data **in the browser's localStorage on on
 
 ## Phase 2 path
 
+**➡ Start here: [PHASE2-SUPABASE.md](PHASE2-SUPABASE.md)** — the exact 5-minute
+setup Finn does in his own Supabase account (create project → run
+[`supabase/schema.sql`](supabase/schema.sql) → send Jarvis the Project URL +
+anon key). The schema is ready: profiles / quotes / campaigns / touches /
+replies tables with Row Level Security on every table (users only ever see
+their own rows).
+
 1. Supabase accounts + database (replace localStorage) so data follows the user across devices.
 2. Gmail OAuth auto-sending (replace the manual "Open in Gmail + Mark sent" step) with the same stop-on-reply engine.
 3. Polar or Lemon Squeezy checkout for the $10/month plan (merchant-of-record that pays out to Pakistan; only takes a cut on sales).
@@ -37,7 +44,7 @@ This build stores the account and all data **in the browser's localStorage on on
 
 ## Tech
 
-Next.js 15 (App Router) + React 19 + TypeScript. Core sequence/CSV/stats logic lives in `app/lib.ts` as pure functions (unit-tested: CSV import incl. duplicates/bad rows/money & US-date parsing, campaign queue dates, Gmail compose URL rendering, stop-on-reply, revived-$ stats, trial countdown — 36/36 checks passing at build time).
+Next.js 15 (App Router) + React 19 + TypeScript. Core sequence/CSV/stats logic lives in `app/lib.ts` as pure functions, covered by the runnable suites in `tests/` (`npm test`): the logic suite (44 assertions — CSV import incl. duplicates/bad rows/money & US-date parsing, campaign queue dates, Gmail compose URL rendering, stop-on-reply, revived-$ stats, trial countdown) plus an extended suite (auth validation, session persistence, trial/CSV edge cases, template rendering, backup round-trip, delete flows, stop-on-reply per reply status).
 
 ## Run locally
 

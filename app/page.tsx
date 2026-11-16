@@ -5,6 +5,7 @@ import {
   defaultTemplates, sampleQuotes, launchCampaign, cancelPendingTouches, markTouchSent,
   computeStats, importQuotesFromCSV, ImportReport, SAMPLE_CSV, renderTemplate,
   gmailComposeUrl, trialDaysRemaining, money, todayISO, uid,
+  validateSignup, validateLogin,
 } from "./lib";
 
 const LS_KEY = "quoterevive_v1";
@@ -101,17 +102,17 @@ export default function Home() {
   function handleSignup(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const name = String(fd.get("name") || "").trim();
-    const businessName = String(fd.get("business") || "").trim();
-    const trade = String(fd.get("trade") || "Remodeling");
-    const email = String(fd.get("email") || "").trim();
-    const password = String(fd.get("password") || "");
-    if (!name || !businessName || !email || password.length < 4) {
-      setAuthError("Please fill in every field (password at least 4 characters).");
-      return;
-    }
+    const input = {
+      name: String(fd.get("name") || ""),
+      businessName: String(fd.get("business") || ""),
+      trade: String(fd.get("trade") || "Remodeling"),
+      email: String(fd.get("email") || ""),
+      password: String(fd.get("password") || ""),
+    };
+    const err = validateSignup(input, state ? state.account : null);
+    if (err) { setAuthError(err); return; }
     setAuthError("");
-    setState(blankState(name, businessName, trade, email, password));
+    setState(blankState(input.name.trim(), input.businessName.trim(), input.trade, input.email.trim(), input.password));
     setSession(true);
     setView("dashboard");
   }
@@ -119,14 +120,21 @@ export default function Home() {
   function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const email = String(fd.get("email") || "").trim();
+    const email = String(fd.get("email") || "");
     const password = String(fd.get("password") || "");
-    if (!state) { setAuthError("No account found on this device yet — please sign up first, or use the demo."); return; }
-    if (state.account.email.toLowerCase() === email.toLowerCase() && state.account.password === password) {
-      setAuthError("");
-      setSession(true);
-      setView("dashboard");
-    } else setAuthError("Email or password does not match the account saved on this device.");
+    const err = validateLogin(email, password, state ? state.account : null);
+    if (err) { setAuthError(err); return; }
+    setAuthError("");
+    setSession(true);
+    setView("dashboard");
+  }
+
+  function goAuth(mode: "signup" | "login") {
+    setAuthMode(mode);
+    setAuthError("");
+    requestAnimationFrame(() => {
+      document.getElementById("get-started")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   function logout() {
@@ -149,7 +157,10 @@ export default function Home() {
               <button className="btn small grey" onClick={logout}>Log out</button>
             </div>
           ) : (
-            <span className="small muted">For home-service contractors</span>
+            <nav className="nav-auth" aria-label="Account">
+              <button className="btn small ghost" onClick={() => goAuth("login")}>Log in</button>
+              <button className="btn small" onClick={() => goAuth("signup")}>Start free month</button>
+            </nav>
           )}
         </div>
       </div>
