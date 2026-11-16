@@ -107,58 +107,127 @@ export default function Home() {
           <a className="logo" href="#" onClick={(e) => e.preventDefault()}>Quote<span>Revive</span></a>
           {state && session ? (
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <span className="tag" style={{ background: "#173656", color: "#9fe8cb" }}>
+              <span className="tag trial">
                 {daysLeft > 0 ? `Free trial: ${daysLeft} day${daysLeft === 1 ? "" : "s"} left` : "Free trial ended"}
               </span>
-              <span className="small" style={{ color: "#c8d4e2" }}>{state.profile.businessName}</span>
+              <span className="small" style={{ color: "#c3d2c7" }}>{state.profile.businessName}</span>
               <button className="btn small grey" onClick={logout}>Log out</button>
             </div>
           ) : (
-            <span className="small" style={{ color: "#c8d4e2" }}>For home-service contractors</span>
+            <span className="small" style={{ color: "#c3d2c7" }}>For home-service contractors</span>
           )}
         </div>
       </div>
 
       {!(state && session) ? (
         <main>
-          <div className="wrap hero">
-            <span className="tag">1 month free for every new account — no card required</span>
-            <h1 style={{ marginTop: 14 }}>Your old quotes are sitting on money.<br />We follow them up for you.</h1>
-            <p className="sub">
-              Every month you send quotes that never get a reply. QuoteRevive imports those dead quotes and runs a
-              friendly 4-touch email follow-up in your voice — so work you already quoted can still turn into booked jobs.
-            </p>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 10 }}>
-              <a className="btn" href="#get-started">Start my free month</a>
-              <button className="btn ghost" onClick={() => { setState(demoState()); setSession(true); }}>Try the demo account</button>
+          <div className="hero-dark">
+            <div className="wrap">
+              <span className="tag rise">1 month free for every new account — no card required</span>
+              <h1 className="rise rise-1" style={{ marginTop: 20 }}>Dead quotes are <span className="hl">money on the table.</span><br />We pick it up for you.</h1>
+              <p className="hero-sub rise rise-2">
+                Every month you send quotes that never get a reply. QuoteRevive imports those dead quotes and runs a
+                friendly 4-touch email follow-up in your voice — so work you already quoted can still turn into booked jobs.
+              </p>
+              <div className="rise rise-3" style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 26 }}>
+                <a className="btn lg" href="#get-started">Start my free month</a>
+                <button className="btn lg ghost" onClick={() => { setState(demoState()); setSession(true); }}>Try the demo account</button>
+              </div>
+              <div className="hero-checks rise rise-3">
+                <span><b>✓</b> 1 month free</span>
+                <span><b>✓</b> No card required</span>
+                <span><b>✓</b> Sends from your own Gmail</span>
+                <span><b>✓</b> Then $10/month — that is the whole price</span>
+              </div>
+
+              <div className="hero-visual rise rise-4">
+                <div className="mock" aria-hidden="true">
+                  <div className="mock-bar">
+                    <span className="mock-dot o"></span><span className="mock-dot"></span><span className="mock-dot"></span>
+                    <span className="mock-url">quoterevive.app/dashboard</span>
+                  </div>
+                  <div className="mock-body">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                      <span className="mock-title">BrightHome Renovations — this week</span>
+                      <span className="tag good">Campaign running</span>
+                    </div>
+                    <div className="mock-stats">
+                      <div className="mock-chip"><div className="k">Dead quotes tracked</div><div className="v">12</div></div>
+                      <div className="mock-chip"><div className="k">Still open</div><div className="v">$80,600</div></div>
+                      <div className="mock-chip"><div className="k">Revived so far</div><div className="v orange">$12,500</div></div>
+                    </div>
+                    <div className="mock-row">
+                      <div className="who"><strong>David Garcia</strong><br /><span className="small muted">Roof replacement · Touch 2 of 4 sent</span></div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}><span className="amt">$12,500</span><span className="pill booked">Booked</span></div>
+                    </div>
+                    <div className="mock-row">
+                      <div className="who"><strong>James Miller</strong><br /><span className="small muted">Kitchen remodel · Touch 3 of 4 due Thursday</span></div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}><span className="amt">$8,400</span><span className="pill seq">In sequence</span></div>
+                    </div>
+                    <div className="mock-row">
+                      <div className="who"><strong>Emily Wilson</strong><br /><span className="small muted">Exterior painting · Waiting for first touch</span></div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}><span className="amt">$1,850</span><span className="pill new">New</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="float-card float-reply" aria-hidden="true">
+                  <div className="fc-head"><span className="fc-dot"></span>Reply received</div>
+                  <p className="small muted" style={{ margin: "6px 0 0" }}>“Hi — yes, we still want the roof done. Can we book for next month?” — David G.</p>
+                </div>
+                <div className="float-card float-booked" aria-hidden="true">
+                  <div className="fc-head"><span className="fc-dot orange"></span>Job booked · $12,500</div>
+                  <p className="small muted" style={{ margin: "6px 0 0" }}>From a quote sent 3 months ago — revived by touch 2.</p>
+                </div>
+              </div>
             </div>
-            <p className="small muted" style={{ marginTop: 12 }}>
-              After your free month, QuoteRevive will be $10/month — no card required now.
-            </p>
           </div>
 
-          <section style={{ background: "#fff", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
+          <div className="marquee" aria-hidden="true">
+            <div className="marquee-track">
+              <span>Remodeling ✦ HVAC ✦ Roofing ✦ Painting ✦ Landscaping ✦ Plumbing ✦ Electrical ✦ Home services ✦</span>
+              <span>Remodeling ✦ HVAC ✦ Roofing ✦ Painting ✦ Landscaping ✦ Plumbing ✦ Electrical ✦ Home services ✦</span>
+            </div>
+          </div>
+
+          <section style={{ paddingBottom: 8 }}>
             <div className="wrap">
-              <h2>How it works</h2>
-              <div className="grid c3" style={{ marginTop: 14 }}>
-                <div className="card"><h3>1. Import your dead quotes</h3><p className="muted">Upload a CSV from Jobber, QuickBooks or a spreadsheet — or add quotes one by one. Name, email, amount, job type. That is all we need.</p></div>
-                <div className="card"><h3>2. Launch the sequence</h3><p className="muted">Four short, polite follow-up emails over 25 days, written in your voice and editable by you. Sending happens from your own Gmail, one click per email.</p></div>
-                <div className="card"><h3>3. Watch replies come in</h3><p className="muted">Every reply lands on one simple board. Mark jobs as booked and see exactly how much revenue you revived.</p></div>
+              <div className="facts">
+                <div className="fact"><div className="n">4 touches</div><div className="l">One polite sequence, in your voice</div></div>
+                <div className="fact"><div className="n">25 days</div><div className="l">Spaced out — day 0, 3, 10 and 25</div></div>
+                <div className="fact"><div className="n">Your Gmail</div><div className="l">Sends from your own inbox, $0 sending cost</div></div>
+                <div className="fact"><div className="n">Stops itself</div><div className="l">The moment a customer replies or books</div></div>
               </div>
             </div>
           </section>
 
-          <section>
+          <section className="section-white">
             <div className="wrap">
-              <h2>The 4-touch sequence</h2>
-              <p className="muted" style={{ maxWidth: 640 }}>Polite, spaced out, and it stops the moment a customer replies. You can edit every word before you launch.</p>
-              <div className="grid c2" style={{ marginTop: 10 }}>
+              <div className="sec-head">
+                <span className="eyebrow">How it works</span>
+                <h2>From forgotten quotes to booked jobs, in three steps</h2>
+              </div>
+              <div className="grid c3">
+                <div className="card hoverable"><span className="step-num">/ 01</span><h3>Import your dead quotes</h3><p className="muted" style={{ marginBottom: 0 }}>Upload a CSV from Jobber, QuickBooks or a spreadsheet — or add quotes one by one. Name, email, amount, job type. That is all we need.</p></div>
+                <div className="card hoverable"><span className="step-num">/ 02</span><h3>Launch the sequence</h3><p className="muted" style={{ marginBottom: 0 }}>Four short, polite follow-up emails over 25 days, written in your voice and editable by you. Sending happens from your own Gmail, one click per email.</p></div>
+                <div className="card hoverable"><span className="step-num">/ 03</span><h3>Watch replies come in</h3><p className="muted" style={{ marginBottom: 0 }}>Every reply lands on one simple board. Mark jobs as booked and see exactly how much revenue you revived.</p></div>
+              </div>
+            </div>
+          </section>
+
+          <section className="section-dark">
+            <div className="wrap">
+              <div className="sec-head">
+                <span className="eyebrow">The sequence</span>
+                <h2>Four touches. Twenty-five days. Zero pestering.</h2>
+                <p className="muted">Polite, spaced out, and it stops the moment a customer replies. You can edit every word before you launch.</p>
+              </div>
+              <div className="timeline">
                 {defaultTemplates().map((t, i) => (
-                  <div className="card" key={t.day} style={{ display: "flex", gap: 14 }}>
+                  <div className="tl-item" key={t.day}>
                     <div className="seqdot">{i + 1}</div>
-                    <div>
-                      <strong>Day {t.day} — {t.subject.replace("{job_type}", "kitchen remodel")}</strong>
-                      <p className="small muted" style={{ marginTop: 6, whiteSpace: "pre-line" }}>{t.body.split("\n").slice(0, 3).join("\n")}…</p>
+                    <div className="card on-dark">
+                      <strong style={{ fontFamily: "var(--font-display)", fontSize: "1.05rem" }}>Day {t.day} — {t.subject.replace("{job_type}", "kitchen remodel")}</strong>
+                      <p className="small muted" style={{ margin: "6px 0 0", whiteSpace: "pre-line" }}>{t.body.split("\n").slice(0, 3).join("\n")}…</p>
                     </div>
                   </div>
                 ))}
@@ -166,11 +235,12 @@ export default function Home() {
             </div>
           </section>
 
-          <section style={{ background: "#fff", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
+          <section className="section-white">
             <div className="wrap grid c2" style={{ alignItems: "start" }}>
               <div>
-                <h2>Dead Quote Calculator</h2>
-                <p className="muted">How much money is sitting in quotes you already sent? Move the sliders and see. Even a small revival rate can mean one or two extra jobs a month.</p>
+                <span className="eyebrow" style={{ color: "var(--accent-dark)", display: "block", marginBottom: 12 }}>Dead Quote Calculator</span>
+                <h2>How much money is sitting in your old quotes?</h2>
+                <p className="muted">Move the sliders and see. Even a small revival rate can mean one or two extra jobs a month — from quotes you have already written.</p>
                 <label>Unsold quotes in the last 12 months: {calcQuotes}</label>
                 <input type="range" min={0} max={300} value={calcQuotes} onChange={(e) => setCalcQuotes(Number(e.target.value))} />
                 <label>Average job value ($)</label>
@@ -178,12 +248,13 @@ export default function Home() {
                 <label>If just this % reply and book: {calcPct}%</label>
                 <input type="range" min={1} max={30} value={calcPct} onChange={(e) => setCalcPct(Number(e.target.value))} />
               </div>
-              <div className="card" style={{ background: "var(--accent-soft)", borderColor: "#bfe3d6" }}>
-                <p className="muted" style={{ marginBottom: 4 }}>Pipeline sitting idle</p>
+              <div className="calc-out">
+                <p className="eyebrow" style={{ color: "#9db0a2", marginBottom: 8 }}>Pipeline sitting idle</p>
                 <div className="stat-num" data-testid="idle-value">{money(idle)}</div>
-                <p className="muted" style={{ margin: "14px 0 4px" }}>Potential revived revenue at {calcPct}%</p>
-                <div className="stat-num" data-testid="potential-value">{money(potential)}</div>
-                <p className="small muted" style={{ marginTop: 12 }}>An estimate to show the size of the opportunity — your real results depend on your quotes and your market.</p>
+                <div className="divider"></div>
+                <p className="eyebrow" style={{ color: "#9db0a2", marginBottom: 8 }}>Potential revived revenue at {calcPct}%</p>
+                <div className="stat-num big-orange" data-testid="potential-value">{money(potential)}</div>
+                <p className="small muted" style={{ marginTop: 16, marginBottom: 0 }}>An estimate to show the size of the opportunity — your real results depend on your quotes and your market.</p>
               </div>
             </div>
           </section>
@@ -191,7 +262,8 @@ export default function Home() {
           <section id="get-started">
             <div className="wrap grid c2" style={{ alignItems: "start" }}>
               <div>
-                <h2>Start your free month</h2>
+                <span className="eyebrow" style={{ color: "var(--accent-dark)", display: "block", marginBottom: 12 }}>Get started</span>
+                <h2>Your first month is on us</h2>
                 <p className="muted">Every account starts with a full month free. No pricing and no card during testing — after the free month the plan will be $10/month.</p>
                 <p className="small muted">Testing build note: this early version keeps your account and quotes on this device only. Cloud accounts and automatic sending arrive before the public launch.</p>
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
@@ -260,8 +332,9 @@ export default function Home() {
       )}
 
       <footer>
-        <div className="wrap" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-          <span className="small muted">QuoteRevive — follow up the quotes you already sent.</span>
+        <div className="wrap" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+          <span className="logo">Quote<span>Revive</span></span>
+          <span className="small muted">Follow up the quotes you already sent.</span>
           <span className="small muted">Only ever email people who asked you for a quote. Always honour opt-outs.</span>
         </div>
       </footer>
@@ -279,17 +352,23 @@ function Dashboard({ state, stats, daysLeft, go, loadSample }: {
 }) {
   return (
     <div>
-      <h2>Welcome back, {state.account.name.split(" ")[0]}</h2>
-      <p className="muted">{state.profile.businessName} · {state.profile.trade} · Free trial: {daysLeft} day{daysLeft === 1 ? "" : "s"} remaining of 30. After your free month, QuoteRevive will be $10/month — no card required now.</p>
-      <div className="grid c4" style={{ marginTop: 8 }}>
-        <div className="card"><p className="muted" style={{ marginBottom: 2 }}>Dead quotes tracked</p><div className="stat-num">{stats.totalQuotes}</div><p className="small muted">{money(stats.idleValue)} still open</p></div>
-        <div className="card"><p className="muted" style={{ marginBottom: 2 }}>Follow-ups sent</p><div className="stat-num">{stats.touchesSent}</div><p className="small muted">{stats.touchesPending} scheduled</p></div>
-        <div className="card"><p className="muted" style={{ marginBottom: 2 }}>Replies</p><div className="stat-num">{stats.replies}</div><p className="small muted">customers who answered</p></div>
-        <div className="card" style={{ background: "var(--accent-soft)" }}><p className="muted" style={{ marginBottom: 2 }}>Revived revenue</p><div className="stat-num">{money(stats.revivedValue)}</div><p className="small muted">{stats.booked} job{stats.booked === 1 ? "" : "s"} booked</p></div>
+      <div className="dash-head">
+        <div>
+          <span className="eyebrow" style={{ color: "var(--accent-dark)" }}>{state.profile.businessName} · {state.profile.trade}</span>
+          <h2 style={{ marginTop: 6 }}>Welcome back, {state.account.name.split(" ")[0]}</h2>
+        </div>
+        <span className="tag">Free trial · {daysLeft} of 30 days left</span>
+      </div>
+      <p className="muted" style={{ maxWidth: 640 }}>After your free month, QuoteRevive will be $10/month — no card required now.</p>
+      <div className="grid c4" style={{ marginTop: 10 }}>
+        <div className="card stat-card"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Dead quotes tracked</p><div className="stat-num">{stats.totalQuotes}</div><p className="small muted" style={{ marginBottom: 0 }}>{money(stats.idleValue)} still open</p></div>
+        <div className="card stat-card"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Follow-ups sent</p><div className="stat-num">{stats.touchesSent}</div><p className="small muted" style={{ marginBottom: 0 }}>{stats.touchesPending} scheduled</p></div>
+        <div className="card stat-card"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Replies</p><div className="stat-num">{stats.replies}</div><p className="small muted" style={{ marginBottom: 0 }}>customers who answered</p></div>
+        <div className="card stat-card revived"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Revived revenue</p><div className="stat-num">{money(stats.revivedValue)}</div><p className="small muted" style={{ marginBottom: 0 }}>{stats.booked} job{stats.booked === 1 ? "" : "s"} booked</p></div>
       </div>
 
       {state.quotes.length === 0 ? (
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="empty" style={{ marginTop: 18 }}>
           <h3>Start in 2 minutes</h3>
           <p className="muted">You have no quotes yet. Load the sample quotes to see exactly how QuoteRevive works, or import your own from the Quotes tab.</p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
