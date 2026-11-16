@@ -29,6 +29,41 @@ function demoState(): AppState {
 
 type View = "dashboard" | "quotes" | "campaign" | "send" | "replies" | "settings";
 
+/* Rich range slider: filled track, floating value bubble, step ticks, min/max scale.
+   Presentation only — same value/onChange contract as a plain range input. */
+function RichSlider({ label, value, min, max, ticks, format, onChange }: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  ticks: number;
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+}) {
+  const pct = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+  return (
+    <div className="rslider-block">
+      <span className="rslider-label">{label}</span>
+      <div className="rslider">
+        <div className="rslider-bubble" style={{ left: `calc(${pct}% + ${(50 - pct) * 0.24}px)` }}>{format(value)}</div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={value}
+          aria-label={label}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{ background: `linear-gradient(90deg, var(--accent) ${pct}%, #e8e5db ${pct}%)` }}
+        />
+        <div className="rslider-ticks" aria-hidden="true">
+          {Array.from({ length: ticks }).map((_, i) => <span key={i}></span>)}
+        </div>
+        <div className="rslider-scale"><span>{format(min)}</span><span>{format(max)}</span></div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [state, setState] = useState<AppState | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -110,21 +145,28 @@ export default function Home() {
               <span className="tag trial">
                 {daysLeft > 0 ? `Free trial: ${daysLeft} day${daysLeft === 1 ? "" : "s"} left` : "Free trial ended"}
               </span>
-              <span className="small" style={{ color: "#c3d2c7" }}>{state.profile.businessName}</span>
+              <span className="small muted">{state.profile.businessName}</span>
               <button className="btn small grey" onClick={logout}>Log out</button>
             </div>
           ) : (
-            <span className="small" style={{ color: "#c3d2c7" }}>For home-service contractors</span>
+            <span className="small muted">For home-service contractors</span>
           )}
         </div>
       </div>
 
       {!(state && session) ? (
         <main>
-          <div className="hero-dark">
+          <div className="hero">
             <div className="wrap">
               <span className="tag rise">1 month free for every new account — no card required</span>
-              <h1 className="rise rise-1" style={{ marginTop: 20 }}>Dead quotes are <span className="hl">money on the table.</span><br />We pick it up for you.</h1>
+              <h1 className="rise rise-1" style={{ marginTop: 20 }}>
+                Dead quotes are{" "}
+                <span className="chip-icon ci-blue" aria-hidden="true"><svg viewBox="0 0 24 24" fill="#fff"><path d="M13 2 4.5 13.5H11L9.8 22l8.7-11.5H12L13 2z" /></svg></span>{" "}
+                <span className="hl">money</span> <span className="hg">on the table.</span><br />
+                We pick it up{" "}
+                <span className="chip-icon sq ci-pink" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19 19 4" /><path d="M9 4h10v10" /></svg></span>{" "}
+                for you.
+              </h1>
               <p className="hero-sub rise rise-2">
                 Every month you send quotes that never get a reply. QuoteRevive imports those dead quotes and runs a
                 friendly 4-touch email follow-up in your voice — so work you already quoted can still turn into booked jobs.
@@ -134,10 +176,10 @@ export default function Home() {
                 <button className="btn lg ghost" onClick={() => { setState(demoState()); setSession(true); }}>Try the demo account</button>
               </div>
               <div className="hero-checks rise rise-3">
-                <span><b>✓</b> 1 month free</span>
-                <span><b>✓</b> No card required</span>
-                <span><b>✓</b> Sends from your own Gmail</span>
-                <span><b>✓</b> Then $10/month — that is the whole price</span>
+                <span>1 month free</span>
+                <span>No card required</span>
+                <span>Sends from your own Gmail</span>
+                <span>Then $10/month — that is the whole price</span>
               </div>
 
               <div className="hero-visual rise rise-4">
@@ -154,18 +196,18 @@ export default function Home() {
                     <div className="mock-stats">
                       <div className="mock-chip"><div className="k">Dead quotes tracked</div><div className="v">12</div></div>
                       <div className="mock-chip"><div className="k">Still open</div><div className="v">$80,600</div></div>
-                      <div className="mock-chip"><div className="k">Revived so far</div><div className="v orange">$12,500</div></div>
+                      <div className="mock-chip"><div className="k">Revived so far</div><div className="v green">$12,500</div></div>
                     </div>
                     <div className="mock-row">
-                      <div className="who"><strong>David Garcia</strong><br /><span className="small muted">Roof replacement · Touch 2 of 4 sent</span></div>
+                      <div className="who"><span className="avatar av1">DG</span><div><strong>David Garcia</strong><br /><span className="small muted">Roof replacement · Touch 2 of 4 sent</span></div></div>
                       <div style={{ display: "flex", gap: 10, alignItems: "center" }}><span className="amt">$12,500</span><span className="pill booked">Booked</span></div>
                     </div>
                     <div className="mock-row">
-                      <div className="who"><strong>James Miller</strong><br /><span className="small muted">Kitchen remodel · Touch 3 of 4 due Thursday</span></div>
+                      <div className="who"><span className="avatar av2">JM</span><div><strong>James Miller</strong><br /><span className="small muted">Kitchen remodel · Touch 3 of 4 due Thursday</span></div></div>
                       <div style={{ display: "flex", gap: 10, alignItems: "center" }}><span className="amt">$8,400</span><span className="pill seq">In sequence</span></div>
                     </div>
                     <div className="mock-row">
-                      <div className="who"><strong>Emily Wilson</strong><br /><span className="small muted">Exterior painting · Waiting for first touch</span></div>
+                      <div className="who"><span className="avatar av3">EW</span><div><strong>Emily Wilson</strong><br /><span className="small muted">Exterior painting · Waiting for first touch</span></div></div>
                       <div style={{ display: "flex", gap: 10, alignItems: "center" }}><span className="amt">$1,850</span><span className="pill new">New</span></div>
                     </div>
                   </div>
@@ -175,7 +217,7 @@ export default function Home() {
                   <p className="small muted" style={{ margin: "6px 0 0" }}>“Hi — yes, we still want the roof done. Can we book for next month?” — David G.</p>
                 </div>
                 <div className="float-card float-booked" aria-hidden="true">
-                  <div className="fc-head"><span className="fc-dot orange"></span>Job booked · $12,500</div>
+                  <div className="fc-head"><span className="fc-dot blue"></span>Job booked · $12,500</div>
                   <p className="small muted" style={{ margin: "6px 0 0" }}>From a quote sent 3 months ago — revived by touch 2.</p>
                 </div>
               </div>
@@ -207,14 +249,23 @@ export default function Home() {
                 <h2>From forgotten quotes to booked jobs, in three steps</h2>
               </div>
               <div className="grid c3">
-                <div className="card hoverable"><span className="step-num">/ 01</span><h3>Import your dead quotes</h3><p className="muted" style={{ marginBottom: 0 }}>Upload a CSV from Jobber, QuickBooks or a spreadsheet — or add quotes one by one. Name, email, amount, job type. That is all we need.</p></div>
-                <div className="card hoverable"><span className="step-num">/ 02</span><h3>Launch the sequence</h3><p className="muted" style={{ marginBottom: 0 }}>Four short, polite follow-up emails over 25 days, written in your voice and editable by you. Sending happens from your own Gmail, one click per email.</p></div>
-                <div className="card hoverable"><span className="step-num">/ 03</span><h3>Watch replies come in</h3><p className="muted" style={{ marginBottom: 0 }}>Every reply lands on one simple board. Mark jobs as booked and see exactly how much revenue you revived.</p></div>
+                <div className="card hoverable">
+                  <span className="medal md1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4" /><path d="m6 10 6-6 6 6" /><path d="M4 20h16" /></svg></span>
+                  <span className="step-num">Step 01</span><h3>Import your dead quotes</h3><p className="muted" style={{ marginBottom: 0 }}>Upload a CSV from Jobber, QuickBooks or a spreadsheet — or add quotes one by one. Name, email, amount, job type. That is all we need.</p>
+                </div>
+                <div className="card hoverable">
+                  <span className="medal md2" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 3 10.5 13.5" /><path d="M21 3 14 21l-3.5-7.5L3 10 21 3z" /></svg></span>
+                  <span className="step-num">Step 02</span><h3>Launch the sequence</h3><p className="muted" style={{ marginBottom: 0 }}>Four short, polite follow-up emails over 25 days, written in your voice and editable by you. Sending happens from your own Gmail, one click per email.</p>
+                </div>
+                <div className="card hoverable">
+                  <span className="medal md3" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2.2-3.1A8 8 0 1 1 21 12z" /><path d="M8.5 11h7" /><path d="M8.5 14h4" /></svg></span>
+                  <span className="step-num">Step 03</span><h3>Watch replies come in</h3><p className="muted" style={{ marginBottom: 0 }}>Every reply lands on one simple board. Mark jobs as booked and see exactly how much revenue you revived.</p>
+                </div>
               </div>
             </div>
           </section>
 
-          <section className="section-dark">
+          <section className="section-tint">
             <div className="wrap">
               <div className="sec-head">
                 <span className="eyebrow">The sequence</span>
@@ -225,7 +276,7 @@ export default function Home() {
                 {defaultTemplates().map((t, i) => (
                   <div className="tl-item" key={t.day}>
                     <div className="seqdot">{i + 1}</div>
-                    <div className="card on-dark">
+                    <div className="card">
                       <strong style={{ fontFamily: "var(--font-display)", fontSize: "1.05rem" }}>Day {t.day} — {t.subject.replace("{job_type}", "kitchen remodel")}</strong>
                       <p className="small muted" style={{ margin: "6px 0 0", whiteSpace: "pre-line" }}>{t.body.split("\n").slice(0, 3).join("\n")}…</p>
                     </div>
@@ -237,23 +288,26 @@ export default function Home() {
 
           <section className="section-white">
             <div className="wrap grid c2" style={{ alignItems: "start" }}>
-              <div>
-                <span className="eyebrow" style={{ color: "var(--accent-dark)", display: "block", marginBottom: 12 }}>Dead Quote Calculator</span>
-                <h2>How much money is sitting in your old quotes?</h2>
-                <p className="muted">Move the sliders and see. Even a small revival rate can mean one or two extra jobs a month — from quotes you have already written.</p>
-                <label>Unsold quotes in the last 12 months: {calcQuotes}</label>
-                <input type="range" min={0} max={300} value={calcQuotes} onChange={(e) => setCalcQuotes(Number(e.target.value))} />
-                <label>Average job value ($)</label>
-                <input type="number" min={0} value={calcAvg} onChange={(e) => setCalcAvg(Number(e.target.value))} />
-                <label>If just this % reply and book: {calcPct}%</label>
-                <input type="range" min={1} max={30} value={calcPct} onChange={(e) => setCalcPct(Number(e.target.value))} />
+              <div className="card">
+                <span className="eyebrow" style={{ display: "block", marginBottom: 12 }}>Dead Quote Calculator</span>
+                <h2 style={{ fontSize: "1.9rem" }}>How much money is sitting in your old quotes?</h2>
+                <p className="muted" style={{ marginBottom: 0 }}>Move the sliders and see. Even a small revival rate can mean one or two extra jobs a month — from quotes you have already written.</p>
+                <RichSlider label="Unsold quotes in the last 12 months" value={calcQuotes} min={0} max={300} ticks={7} format={(v) => `${v}`} onChange={setCalcQuotes} />
+                <div style={{ marginTop: 24 }}>
+                  <span className="rslider-label">Average job value</span>
+                  <div className="ffield" style={{ marginTop: 8 }}>
+                    <input type="number" min={0} value={calcAvg} onChange={(e) => setCalcAvg(Number(e.target.value))} placeholder=" " aria-label="Average job value in dollars" />
+                    <label>Amount in $</label>
+                  </div>
+                </div>
+                <RichSlider label="If just this % reply and book" value={calcPct} min={1} max={30} ticks={6} format={(v) => `${v}%`} onChange={setCalcPct} />
               </div>
               <div className="calc-out">
-                <p className="eyebrow" style={{ color: "#9db0a2", marginBottom: 8 }}>Pipeline sitting idle</p>
+                <p className="eyebrow" style={{ marginBottom: 8 }}>Pipeline sitting idle</p>
                 <div className="stat-num" data-testid="idle-value">{money(idle)}</div>
                 <div className="divider"></div>
-                <p className="eyebrow" style={{ color: "#9db0a2", marginBottom: 8 }}>Potential revived revenue at {calcPct}%</p>
-                <div className="stat-num big-orange" data-testid="potential-value">{money(potential)}</div>
+                <p className="eyebrow" style={{ marginBottom: 8 }}>Potential revived revenue at {calcPct}%</p>
+                <div className="stat-num big-green" data-testid="potential-value">{money(potential)}</div>
                 <p className="small muted" style={{ marginTop: 16, marginBottom: 0 }}>An estimate to show the size of the opportunity — your real results depend on your quotes and your market.</p>
               </div>
             </div>
@@ -262,7 +316,7 @@ export default function Home() {
           <section id="get-started">
             <div className="wrap grid c2" style={{ alignItems: "start" }}>
               <div>
-                <span className="eyebrow" style={{ color: "var(--accent-dark)", display: "block", marginBottom: 12 }}>Get started</span>
+                <span className="eyebrow" style={{ display: "block", marginBottom: 12 }}>Get started</span>
                 <h2>Your first month is on us</h2>
                 <p className="muted">Every account starts with a full month free. No pricing and no card during testing — after the free month the plan will be $10/month.</p>
                 <p className="small muted">Testing build note: this early version keeps your account and quotes on this device only. Cloud accounts and automatic sending arrive before the public launch.</p>
@@ -273,29 +327,55 @@ export default function Home() {
               </div>
               <div className="card">
                 {authMode === "signup" ? (
-                  <form onSubmit={handleSignup}>
-                    <label>Your name</label>
-                    <input name="name" type="text" placeholder="e.g. Mike Carter" required />
-                    <label>Business name</label>
-                    <input name="business" type="text" placeholder="e.g. Carter Remodeling LLC" required />
-                    <label>Trade</label>
-                    <select name="trade">{TRADES.map((t) => <option key={t}>{t}</option>)}</select>
-                    <label>Email</label>
-                    <input name="email" type="email" placeholder="you@yourbusiness.com" required />
-                    <label>Password</label>
-                    <input name="password" type="password" placeholder="At least 4 characters" required />
-                    {authError && <p className="small" style={{ color: "var(--bad)", marginTop: 10 }}>{authError}</p>}
-                    <button className="btn" style={{ marginTop: 16, width: "100%" }} type="submit">Create my free account</button>
+                  <form className="pform" onSubmit={handleSignup}>
+                    <div>
+                      <div className="ffield">
+                        <input name="name" type="text" placeholder=" " required />
+                        <label>Your name</label>
+                      </div>
+                      <p className="fhint">e.g. Mike Carter</p>
+                    </div>
+                    <div>
+                      <div className="ffield">
+                        <input name="business" type="text" placeholder=" " required />
+                        <label>Business name</label>
+                      </div>
+                      <p className="fhint">e.g. Carter Remodeling LLC</p>
+                    </div>
+                    <div className="sfield">
+                      <label>Trade</label>
+                      <select name="trade">{TRADES.map((t) => <option key={t}>{t}</option>)}</select>
+                    </div>
+                    <div>
+                      <div className="ffield">
+                        <input name="email" type="email" placeholder=" " required />
+                        <label>Email</label>
+                      </div>
+                      <p className="fhint">you@yourbusiness.com — where replies and reports would go.</p>
+                    </div>
+                    <div>
+                      <div className="ffield">
+                        <input name="password" type="password" placeholder=" " required />
+                        <label>Password</label>
+                      </div>
+                      <p className="fhint">At least 4 characters.</p>
+                    </div>
+                    {authError && <p className="form-error">{authError}</p>}
+                    <button className="btn" style={{ width: "100%" }} type="submit">Create my free account</button>
                   </form>
                 ) : (
-                  <form onSubmit={handleLogin}>
-                    <label>Email</label>
-                    <input name="email" type="email" required />
-                    <label>Password</label>
-                    <input name="password" type="password" required />
-                    {authError && <p className="small" style={{ color: "var(--bad)", marginTop: 10 }}>{authError}</p>}
-                    <button className="btn" style={{ marginTop: 16, width: "100%" }} type="submit">Log in</button>
-                    <p className="small muted" style={{ marginTop: 10 }}>Accounts live on this device in this testing build. No account here yet? Sign up or try the demo.</p>
+                  <form className="pform" onSubmit={handleLogin}>
+                    <div className="ffield">
+                      <input name="email" type="email" placeholder=" " required />
+                      <label>Email</label>
+                    </div>
+                    <div className="ffield">
+                      <input name="password" type="password" placeholder=" " required />
+                      <label>Password</label>
+                    </div>
+                    {authError && <p className="form-error">{authError}</p>}
+                    <button className="btn" style={{ width: "100%" }} type="submit">Log in</button>
+                    <p className="small muted" style={{ marginBottom: 0 }}>Accounts live on this device in this testing build. No account here yet? Sign up or try the demo.</p>
                   </form>
                 )}
                 <button className="btn ghost" style={{ width: "100%", marginTop: 12 }} onClick={() => { setState(demoState()); setSession(true); }}>Load the demo account with sample quotes</button>
@@ -354,16 +434,16 @@ function Dashboard({ state, stats, daysLeft, go, loadSample }: {
     <div>
       <div className="dash-head">
         <div>
-          <span className="eyebrow" style={{ color: "var(--accent-dark)" }}>{state.profile.businessName} · {state.profile.trade}</span>
+          <span className="eyebrow">{state.profile.businessName} · {state.profile.trade}</span>
           <h2 style={{ marginTop: 6 }}>Welcome back, {state.account.name.split(" ")[0]}</h2>
         </div>
         <span className="tag">Free trial · {daysLeft} of 30 days left</span>
       </div>
       <p className="muted" style={{ maxWidth: 640 }}>After your free month, QuoteRevive will be $10/month — no card required now.</p>
       <div className="grid c4" style={{ marginTop: 10 }}>
-        <div className="card stat-card"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Dead quotes tracked</p><div className="stat-num">{stats.totalQuotes}</div><p className="small muted" style={{ marginBottom: 0 }}>{money(stats.idleValue)} still open</p></div>
-        <div className="card stat-card"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Follow-ups sent</p><div className="stat-num">{stats.touchesSent}</div><p className="small muted" style={{ marginBottom: 0 }}>{stats.touchesPending} scheduled</p></div>
-        <div className="card stat-card"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Replies</p><div className="stat-num">{stats.replies}</div><p className="small muted" style={{ marginBottom: 0 }}>customers who answered</p></div>
+        <div className="card stat-card s1"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Dead quotes tracked</p><div className="stat-num">{stats.totalQuotes}</div><p className="small muted" style={{ marginBottom: 0 }}>{money(stats.idleValue)} still open</p></div>
+        <div className="card stat-card s2"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Follow-ups sent</p><div className="stat-num">{stats.touchesSent}</div><p className="small muted" style={{ marginBottom: 0 }}>{stats.touchesPending} scheduled</p></div>
+        <div className="card stat-card s3"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Replies</p><div className="stat-num">{stats.replies}</div><p className="small muted" style={{ marginBottom: 0 }}>customers who answered</p></div>
         <div className="card stat-card revived"><p className="eyebrow muted" style={{ marginBottom: 6 }}>Revived revenue</p><div className="stat-num">{money(stats.revivedValue)}</div><p className="small muted" style={{ marginBottom: 0 }}>{stats.booked} job{stats.booked === 1 ? "" : "s"} booked</p></div>
       </div>
 
@@ -472,18 +552,33 @@ function QuotesView({ state, update }: { state: AppState; update: (fn: (s: AppSt
         </div>
         <div className="card">
           <h3>Add one quote manually</h3>
-          <form onSubmit={addQuote}>
-            <label>Customer name</label>
-            <input name="name" type="text" required />
-            <label>Customer email</label>
-            <input name="email" type="email" required />
-            <div className="grid c2">
-              <div><label>Quote amount ($)</label><input name="amount" type="number" min={0} step="any" /></div>
-              <div><label>Quote date</label><input name="date" type="date" defaultValue={todayISO()} /></div>
+          <form className="pform" onSubmit={addQuote}>
+            <div className="ffield">
+              <input name="name" type="text" placeholder=" " required />
+              <label>Customer name</label>
             </div>
-            <label>Job type</label>
-            <input name="jobType" type="text" placeholder="e.g. Kitchen remodel" />
-            <button className="btn" style={{ marginTop: 14 }} type="submit">Add quote</button>
+            <div className="ffield">
+              <input name="email" type="email" placeholder=" " required />
+              <label>Customer email</label>
+            </div>
+            <div className="grid c2">
+              <div className="ffield">
+                <input name="amount" type="number" min={0} step="any" placeholder=" " />
+                <label>Quote amount ($)</label>
+              </div>
+              <div className="ffield">
+                <input name="date" type="date" defaultValue={todayISO()} placeholder=" " />
+                <label>Quote date</label>
+              </div>
+            </div>
+            <div>
+              <div className="ffield">
+                <input name="jobType" type="text" placeholder=" " />
+                <label>Job type</label>
+              </div>
+              <p className="fhint">e.g. Kitchen remodel — used in the follow-up emails.</p>
+            </div>
+            <button className="btn" type="submit">Add quote</button>
           </form>
         </div>
       </div>
@@ -542,17 +637,23 @@ function CampaignView({ state, update, go }: { state: AppState; update: (fn: (s:
     <div>
       <h2>Campaign — the 4-touch sequence</h2>
       <p className="muted" style={{ maxWidth: 720 }}>Edit the emails in your own voice. Placeholders: {"{first_name}"} {"{business_name}"} {"{job_type}"} {"{amount}"} {"{owner_name}"} {"{booking_link}"}. The sequence stops automatically for anyone who replies or books.</p>
-      <div className="grid" style={{ gap: 14 }}>
+      <div className="grid seq-list" style={{ gap: 14 }}>
         {state.templates.map((t, i) => (
           <div className="card" key={t.day}>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
               <div className="seqdot">{i + 1}</div>
               <strong>Touch {i + 1} — sends on day {t.day} after launch</strong>
             </div>
-            <label>Subject</label>
-            <input type="text" value={t.subject} onChange={(e) => editTemplate(i, "subject", e.target.value)} />
-            <label>Email body</label>
-            <textarea value={t.body} onChange={(e) => editTemplate(i, "body", e.target.value)} style={{ minHeight: 150 }} />
+            <div className="pform">
+              <div className="ffield">
+                <input type="text" placeholder=" " value={t.subject} onChange={(e) => editTemplate(i, "subject", e.target.value)} />
+                <label>Subject</label>
+              </div>
+              <div className="ffield">
+                <textarea placeholder=" " value={t.body} onChange={(e) => editTemplate(i, "body", e.target.value)} style={{ minHeight: 150 }} />
+                <label>Email body</label>
+              </div>
+            </div>
             {previewQuote && (
               <details style={{ marginTop: 10 }}>
                 <summary className="small" style={{ cursor: "pointer", fontWeight: 600 }}>Preview for {previewQuote.name}</summary>
@@ -609,7 +710,7 @@ function SendView({ state, update }: { state: AppState; update: (fn: (s: AppStat
           {showActions ? (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <a className="btn small" target="_blank" rel="noreferrer" href={gmailComposeUrl(q.email, subject, body)}>Open in Gmail</a>
-              <button className="btn small grey" onClick={() => copyEmail(t)}>{copied === t.id ? "Copied ✓" : "Copy email"}</button>
+              <button className="btn small grey" onClick={() => copyEmail(t)}>{copied === t.id ? "Copied" : "Copy email"}</button>
               <button className="btn small ghost" onClick={() => update((s) => ({ ...s, touches: markTouchSent(s.touches, t.id, todayISO()) }))}>Mark sent</button>
             </div>
           ) : <span className="small muted">{t.status}</span>}
@@ -715,7 +816,7 @@ function SettingsView({ state, update, setState }: { state: AppState; update: (f
         trade: String(fd.get("trade") || s.profile.trade),
       },
     }));
-    setSaved("Profile saved ✓");
+    setSaved("Profile saved");
     setTimeout(() => setSaved(""), 2500);
   }
 
@@ -745,19 +846,34 @@ function SettingsView({ state, update, setState }: { state: AppState; update: (f
         <div className="card">
           <h3>Business profile</h3>
           <p className="small muted">Used in every follow-up email: {"{business_name}"}, {"{owner_name}"} and {"{booking_link}"}.</p>
-          <form onSubmit={saveProfile}>
-            <label>Business name</label>
-            <input name="businessName" type="text" defaultValue={state.profile.businessName} />
-            <label>Your name (sign-off)</label>
-            <input name="ownerName" type="text" defaultValue={state.profile.ownerName} />
-            <label>Reply-to email</label>
-            <input name="replyEmail" type="email" defaultValue={state.profile.replyEmail} />
-            <label>Booking link (Calendly etc.)</label>
-            <input name="bookingLink" type="url" placeholder="https://calendly.com/…" defaultValue={state.profile.bookingLink} />
-            <label>Trade</label>
-            <select name="trade" defaultValue={state.profile.trade}>{TRADES.map((t) => <option key={t}>{t}</option>)}</select>
-            <button className="btn" style={{ marginTop: 14 }} type="submit">Save profile</button>
-            {saved && <span className="small" style={{ marginLeft: 10 }}>{saved}</span>}
+          <form className="pform" onSubmit={saveProfile}>
+            <div className="ffield">
+              <input name="businessName" type="text" placeholder=" " defaultValue={state.profile.businessName} />
+              <label>Business name</label>
+            </div>
+            <div className="ffield">
+              <input name="ownerName" type="text" placeholder=" " defaultValue={state.profile.ownerName} />
+              <label>Your name (sign-off)</label>
+            </div>
+            <div className="ffield">
+              <input name="replyEmail" type="email" placeholder=" " defaultValue={state.profile.replyEmail} />
+              <label>Reply-to email</label>
+            </div>
+            <div>
+              <div className="ffield">
+                <input name="bookingLink" type="url" placeholder=" " defaultValue={state.profile.bookingLink} />
+                <label>Booking link (Calendly etc.)</label>
+              </div>
+              <p className="fhint">e.g. https://calendly.com/your-business — pasted into follow-ups as {"{booking_link}"}.</p>
+            </div>
+            <div className="sfield">
+              <label>Trade</label>
+              <select name="trade" defaultValue={state.profile.trade}>{TRADES.map((t) => <option key={t}>{t}</option>)}</select>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <button className="btn" type="submit">Save profile</button>
+              {saved && <span className="form-ok">{saved}</span>}
+            </div>
           </form>
         </div>
         <div className="card">
