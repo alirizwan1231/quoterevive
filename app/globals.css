@@ -463,3 +463,161 @@ footer .logo { font-size: 1.15rem; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* ================= app shell — dashboard redesign (Finn's reference) =================
+   Slim deep-navy icon sidebar, light blue-grey ground, white top bar, one wide
+   stat strip, activity chart + upcoming list. Content areas keep Fluent Light
+   (white cards, hairline borders, soft shadows). Readability pass scoped to
+   .app-shell so the approved landing page is untouched. */
+.app-shell {
+  display: flex; align-items: stretch; min-height: 100vh;
+  background: #ebeff4;
+  --muted: #6b675c; --faint: #857e6e;
+}
+.sidebar {
+  width: 78px; flex: none; z-index: 70;
+  background: linear-gradient(180deg, #22455c 0%, #1b3547 100%);
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 18px 0 16px;
+}
+.side-logo {
+  width: 44px; height: 44px; border-radius: 50%; flex: none;
+  background: linear-gradient(135deg, #2fd67f, #0e9f5d);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.45);
+  margin-bottom: 22px;
+}
+.side-logo svg { width: 22px; height: 22px; }
+.side-nav { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.side-btn {
+  position: relative; width: 48px; height: 48px; border: 0; border-radius: 15px;
+  background: transparent; color: #a9c0cf;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.side-btn svg { width: 23px; height: 23px; }
+.side-btn:hover { background: rgba(255, 255, 255, 0.09); color: #fff; }
+.side-btn.active { background: var(--azure); color: #fff; box-shadow: 0 10px 20px -8px rgba(46, 155, 255, 0.8); }
+.side-badge {
+  position: absolute; top: -5px; right: -5px;
+  min-width: 19px; height: 19px; padding: 0 5px; border-radius: 999px;
+  background: #ff4d4f; color: #fff; border: 2px solid #1e3a4c;
+  font-size: 0.66rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.side-avatar {
+  margin-top: auto; width: 42px; height: 42px; border-radius: 50%; flex: none;
+  background: linear-gradient(135deg, #4da3ff, #2f6bff); color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  font-family: var(--font-display), sans-serif; font-weight: 800; font-size: 0.8rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.app-topbar {
+  background: #fff; border-bottom: 1px solid var(--line);
+  padding: 14px 28px; position: sticky; top: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+}
+.app-title { font-family: var(--font-display), sans-serif; font-size: 1.32rem; font-weight: 800; letter-spacing: -0.02em; }
+.app-top-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.app-biz { font-weight: 700; color: var(--ink-soft); }
+.app-content {
+  width: 100%; max-width: 1240px; margin: 0 auto;
+  padding: 26px 28px 40px;
+  font-size: 16px; line-height: 1.6;
+}
+
+/* readability inside the app: taller rows, roomier cards, darker muted text */
+.app-shell .card { padding: 24px; }
+.app-shell table { font-size: 1rem; }
+.app-shell th, .app-shell td { padding: 15px 12px; }
+.app-shell .small { font-size: 0.9rem; }
+
+/* stat strip — one wide card, 4 stats, thin dividers (reference layout) */
+.app-shell .stat-strip { padding: 22px 26px 10px; }
+.strip-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.strip-title, .card-title { font-family: var(--font-display), sans-serif; font-size: 1.12rem; font-weight: 800; letter-spacing: -0.015em; }
+.strip-date {
+  font-size: 0.82rem; font-weight: 700; color: var(--muted); white-space: nowrap;
+  border: 1px solid var(--line); border-radius: 10px; padding: 5px 11px; background: #fff;
+}
+.strip-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+.strip-stat { padding: 16px 22px 18px; border-left: 1px solid var(--line-soft); min-width: 0; }
+.strip-stat:first-child { border-left: 0; padding-left: 2px; }
+.strip-top { display: flex; align-items: center; gap: 9px; }
+.strip-chip { width: 32px; height: 32px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.strip-chip svg { width: 17px; height: 17px; }
+.strip-chip.c-azure { background: var(--accent-soft); color: var(--accent-dark); }
+.strip-chip.c-amber { background: var(--warn-soft); color: #d98a06; }
+.strip-chip.c-violet { background: #f1eafe; color: #7c4dff; }
+.strip-chip.c-green { background: var(--good-soft); color: var(--good); }
+.strip-label { font-weight: 700; font-size: 0.95rem; color: var(--ink-soft); white-space: nowrap; }
+.strip-num { font-family: var(--font-display), sans-serif; font-size: 2.85rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-top: 8px; }
+.strip-sub { margin: 2px 0 0; font-size: 0.84rem; color: var(--muted); }
+@media (max-width: 1020px) {
+  .strip-grid { grid-template-columns: repeat(2, 1fr); }
+  .strip-stat { border-left: 0; padding-left: 2px; }
+  .strip-stat:nth-child(n+3) { border-top: 1px solid var(--line-soft); }
+}
+@media (max-width: 460px) {
+  .strip-num { font-size: 2.3rem; }
+  .strip-label { white-space: normal; }
+}
+
+/* dashboard two-column row: chart + upcoming list */
+.dash-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 20px; margin-top: 20px; align-items: start; }
+@media (max-width: 1020px) { .dash-grid { grid-template-columns: 1fr; } }
+.chart-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.legend-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.legend-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px;
+  font-size: 0.86rem; font-weight: 700; color: var(--ink-soft); background: #fff;
+}
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.legend-dot.sent { background: var(--azure); }
+.legend-dot.replies { background: var(--violet); }
+.chart-wrap { position: relative; margin-top: 10px; }
+.chart-empty { margin: 20px 0 8px; }
+.chart-tip {
+  position: absolute; top: 0; z-index: 5; pointer-events: none; white-space: nowrap;
+  background: #fff; border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: var(--shadow); padding: 10px 14px; font-size: 0.84rem; line-height: 1.45;
+}
+.chart-tip .tt-title { font-family: var(--font-display), sans-serif; font-weight: 800; margin-bottom: 4px; }
+.chart-tip .tt-row { display: flex; align-items: center; gap: 8px; color: var(--ink-soft); font-weight: 600; }
+.chart-tip .tt-row b { margin-left: auto; padding-left: 14px; color: var(--ink); }
+
+/* upcoming sends list (reference's events card) */
+.up-row { display: flex; align-items: center; gap: 13px; padding: 14px 0; border-bottom: 1px solid var(--line-soft); }
+.up-row:last-child { border-bottom: 0; padding-bottom: 2px; }
+.up-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.up-who strong { font-size: 0.98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.up-when { flex: none; text-align: right; display: flex; flex-direction: column; }
+.up-when .due-bad { color: var(--bad); }
+.av4 { background: linear-gradient(135deg, #ffc94d, #ff8a00); }
+.av5 { background: linear-gradient(135deg, #2fd67f, #0e9f5d); }
+.av6 { background: linear-gradient(135deg, #ff7a59, #ff3d2e); }
+
+/* needs-attention row */
+.attention {
+  margin-top: 20px; display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap; border-left: 5px solid var(--amber);
+}
+
+/* sidebar collapses to a top icon row on mobile */
+@media (max-width: 760px) {
+  .app-shell { flex-direction: column; }
+  .sidebar {
+    width: 100%; height: auto; flex-direction: row;
+    padding: 10px 14px; gap: 10px; position: sticky; top: 0;
+  }
+  .side-logo { margin-bottom: 0; width: 38px; height: 38px; }
+  .side-nav { flex-direction: row; gap: 4px; overflow-x: auto; }
+  .side-btn { width: 42px; height: 42px; border-radius: 12px; flex: none; }
+  .side-avatar { margin: 0 0 0 auto; width: 38px; height: 38px; }
+  .app-topbar { position: static; padding: 12px 18px; }
+  .app-content { padding: 18px 14px 32px; }
+  .app-biz { display: none; }
+}
