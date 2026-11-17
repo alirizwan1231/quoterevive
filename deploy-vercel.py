@@ -32,6 +32,7 @@ FILES = [
     "app/lib.ts",
     "app/supabase.ts",
     "app/cloud.ts",
+    "app/motion.ts",
     "app/globals.css",
 ]
 
