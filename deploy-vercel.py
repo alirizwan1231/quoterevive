@@ -30,6 +30,8 @@ FILES = [
     "app/layout.tsx",
     "app/page.tsx",
     "app/lib.ts",
+    "app/supabase.ts",
+    "app/cloud.ts",
     "app/globals.css",
 ]
 

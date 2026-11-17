@@ -5,11 +5,45 @@ import {
   defaultTemplates, sampleQuotes, launchCampaign, cancelPendingTouches, markTouchSent,
   computeStats, importQuotesFromCSV, ImportReport, SAMPLE_CSV, renderTemplate,
   gmailComposeUrl, trialDaysRemaining, money, todayISO, addDays, uid,
-  validateSignup, validateLogin,
+  validateSignup, validateLogin, validEmail,
 } from "./lib";
+import { supabase, cloudEnabled } from "./supabase";
+import {
+  loadCloudRows, syncStateToCloud, rowsToState,
+  normalizeStateIds, stateNeedsIdNormalization,
+} from "./cloud";
 
 const LS_KEY = "quoterevive_v1";
 const LS_REPLY_KEY = "quoterevive_replylog_v1";
+const LS_MIGRATED_KEY = "quoterevive_migrated_v1";
+const DEMO_EMAIL = "demo@quoterevive.app";
+
+function isDemoState(s: AppState): boolean {
+  return s.account.email.toLowerCase() === DEMO_EMAIL;
+}
+
+/** Map a Supabase Auth error to the app's friendly message style. */
+function friendlyAuthError(message: string, context: "signup" | "login"): string {
+  const m = message.toLowerCase();
+  if (m.includes("already") && (m.includes("registered") || m.includes("exists") || m.includes("in use"))) {
+    return "An account with this email already exists — log in instead. Signing up again would not create a second account.";
+  }
+  if (m.includes("invalid login credentials")) {
+    return "Email or password doesn't match your account. Check both and try again — or sign up if you are new.";
+  }
+  if (m.includes("email not confirmed") || m.includes("not confirmed")) {
+    return "Please confirm your email first (check your inbox for the confirmation link), then log in.";
+  }
+  if (m.includes("password") && (m.includes("at least") || m.includes("short") || m.includes("weak"))) {
+    return "That password is too short — please use at least 6 characters.";
+  }
+  if (m.includes("invalid") && m.includes("email")) {
+    return "That email address does not look valid — please check it and try again.";
+  }
+  return context === "signup"
+    ? "Could not create your account — please try again in a moment."
+    : "Could not log you in — please try again in a moment.";
+}
 const TRADES = ["Remodeling", "HVAC", "Roofing", "Painting", "Landscaping", "Plumbing", "Electrical", "Other home service"];
 
 function blankState(name: string, businessName: string, trade: string, email: string, password: string): AppState {
@@ -155,8 +189,17 @@ export default function Home() {
   const [view, setView] = useState<View>("dashboard");
   const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
   const [authError, setAuthError] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
   const [session, setSession] = useState(false);
   const [replyLog, setReplyLog] = useState<Record<string, string>>({});
+  // Cloud (Supabase) session state — null in local-only mode / logged out.
+  const [cloudUser, setCloudUser] = useState<{ id: string; email: string } | null>(null);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [syncIssue, setSyncIssue] = useState(false);
+  const [migrated, setMigrated] = useState(false);
+  const lastSyncRef = useRef<string>("");
+  const syncingRef = useRef(false);
 
   // calculator
   const [calcQuotes, setCalcQuotes] = useState(40);
@@ -166,13 +209,34 @@ export default function Home() {
   const potential = Math.round((idle * calcPct) / 100);
 
   useEffect(() => {
+    let localParsed: AppState | null = null;
     try {
       const raw = localStorage.getItem(LS_KEY);
-      if (raw) setState(JSON.parse(raw));
+      if (raw) { localParsed = JSON.parse(raw); setState(localParsed); }
       const log = localStorage.getItem(LS_REPLY_KEY);
       if (log) setReplyLog(JSON.parse(log));
+      if (localStorage.getItem(LS_MIGRATED_KEY)) setMigrated(true);
     } catch { /* ignore */ }
     setLoaded(true);
+
+    if (!supabase) return;
+    let cancelled = false;
+    supabase.auth.getSession().then(async ({ data }) => {
+      const u = data.session?.user;
+      if (cancelled || !u || !u.email) return;
+      const user = { id: u.id, email: u.email };
+      setCloudUser(user);
+      const ok = await hydrateCloudUser(user, localParsed);
+      if (cancelled) return;
+      if (ok || (localParsed && !isDemoState(localParsed) && localParsed.account.email.toLowerCase() === u.email.toLowerCase())) {
+        setSession(true);
+      }
+    }).catch(() => { /* cloud unreachable — local mode continues */ });
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") { setCloudUser(null); setCloudReady(false); }
+    });
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -184,6 +248,46 @@ export default function Home() {
       try { localStorage.setItem(LS_REPLY_KEY, JSON.stringify(replyLog)); } catch { /* ignore */ }
     }
   }, [replyLog, loaded]);
+
+  /* Cloud sync: for a signed-in cloud user, persist every state change
+     (debounced) to Supabase with the replace-all strategy. The demo
+     account and any state that does not belong to the cloud user are
+     never synced. A failed sync keeps the local copy and only raises a
+     non-blocking note in Settings. */
+  useEffect(() => {
+    if (!supabase || !cloudUser || !cloudReady || !state) return;
+    if (isDemoState(state)) return;
+    if (state.account.email.toLowerCase() !== cloudUser.email.toLowerCase()) return;
+    const snapshot = JSON.stringify(state);
+    if (snapshot === lastSyncRef.current) return;
+    const timer = setTimeout(async () => {
+      if (syncingRef.current) return;
+      syncingRef.current = true;
+      try {
+        let working = state;
+        if (stateNeedsIdNormalization(working)) {
+          const { state: normalized, quoteIdMap } = normalizeStateIds(working);
+          working = normalized;
+          if (quoteIdMap.size > 0) {
+            setReplyLog((prev) => {
+              const next: Record<string, string> = {};
+              for (const [k, v] of Object.entries(prev)) next[quoteIdMap.get(k) ?? k] = v;
+              return next;
+            });
+          }
+          setState(normalized);
+        }
+        await syncStateToCloud(supabase, cloudUser.id, working);
+        lastSyncRef.current = JSON.stringify(working);
+        setSyncIssue(false);
+      } catch {
+        setSyncIssue(true);
+      } finally {
+        syncingRef.current = false;
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [state, cloudUser, cloudReady]);
 
   const stats = useMemo(() => (state ? computeStats(state.quotes, state.touches) : null), [state]);
   const daysLeft = state ? trialDaysRemaining(state.account.createdAt) : 0;
@@ -207,7 +311,67 @@ export default function Home() {
     setState((prev) => (prev ? fn(prev) : prev));
   }
 
-  function handleSignup(e: React.FormEvent<HTMLFormElement>) {
+  /**
+   * Load a cloud user's rows and make them the app state.
+   * One-time migration: if the cloud account is still empty but this
+   * device holds testing-build data for the same email, that local data
+   * is adopted (and uploaded by the sync effect) instead of the empty
+   * cloud state. Returns true when a usable state is in place.
+   */
+  async function hydrateCloudUser(user: { id: string; email: string }, localState: AppState | null): Promise<boolean> {
+    if (!supabase) return false;
+    try {
+      const rows = await loadCloudRows(supabase, user.id);
+      const localMatches = !!localState && !isDemoState(localState) &&
+        localState.account.email.toLowerCase() === user.email.toLowerCase();
+      const localHasData = !!localState && (localState.quotes.length > 0 || localState.touches.length > 0);
+      const cloudEmpty = rows.quotes.length === 0 && !rows.campaign;
+
+      if (localMatches && localHasData && cloudEmpty) {
+        if (!rows.profile) {
+          await supabase.from("profiles").insert({
+            id: user.id,
+            business_name: localState!.profile.businessName,
+            owner_name: localState!.profile.ownerName || localState!.account.name,
+            trade: localState!.profile.trade || localState!.account.trade,
+            reply_to_email: localState!.profile.replyEmail || user.email,
+            booking_link: localState!.profile.bookingLink || "",
+            trial_start: localState!.account.createdAt,
+          });
+        }
+        setMigrated(true);
+        try { localStorage.setItem(LS_MIGRATED_KEY, user.email); } catch { /* ignore */ }
+        setState(localState);
+        setCloudReady(true);
+        return true;
+      }
+
+      let profile = rows.profile;
+      if (!profile) {
+        const ins = {
+          id: user.id,
+          business_name: localMatches ? localState!.account.businessName : "",
+          owner_name: localMatches ? localState!.account.name : "",
+          trade: localMatches ? localState!.account.trade : "",
+          reply_to_email: user.email,
+          booking_link: "",
+          trial_start: new Date().toISOString(),
+        };
+        const { data: inserted } = await supabase.from("profiles").insert(ins).select().single();
+        profile = inserted ?? { ...ins };
+      }
+      const cloudState = rowsToState({ ...rows, profile }, user.email, defaultTemplates());
+      lastSyncRef.current = JSON.stringify(cloudState);
+      setState(cloudState);
+      setCloudReady(true);
+      return true;
+    } catch {
+      setSyncIssue(true);
+      return false;
+    }
+  }
+
+  async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const input = {
@@ -217,37 +381,181 @@ export default function Home() {
       email: String(fd.get("email") || ""),
       password: String(fd.get("password") || ""),
     };
-    const err = validateSignup(input, state ? state.account : null);
-    if (err) { setAuthError(err); return; }
+    // Local-only mode (no Supabase configured) or the demo address: the
+    // original on-device flow, unchanged.
+    if (!supabase || input.email.trim().toLowerCase() === DEMO_EMAIL) {
+      const err = validateSignup(input, state ? state.account : null);
+      if (err) { setAuthError(err); return; }
+      setAuthError("");
+      setState(blankState(input.name.trim(), input.businessName.trim(), input.trade, input.email.trim(), input.password));
+      setSession(true);
+      setView("dashboard");
+      return;
+    }
+    const name = input.name.trim();
+    const business = input.businessName.trim();
+    const email = input.email.trim();
+    if (!name || !business || !email || input.password.length < 6) {
+      setAuthError("Please fill in every field (password at least 6 characters).");
+      return;
+    }
+    if (!validEmail(email)) { setAuthError("That email address does not look valid — please check it and try again."); return; }
+    setAuthBusy(true);
     setAuthError("");
-    setState(blankState(input.name.trim(), input.businessName.trim(), input.trade, input.email.trim(), input.password));
-    setSession(true);
-    setView("dashboard");
+    setAuthNotice("");
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: input.password,
+        options: { data: { name, business_name: business, trade: input.trade } },
+      });
+      if (error) { setAuthError(friendlyAuthError(error.message, "signup")); return; }
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setAuthError("An account with this email already exists — log in instead. Signing up again would not create a second account.");
+        return;
+      }
+      if (data.user && !data.session) {
+        // Email confirmation is switched on for this project: no session
+        // until the user clicks the link in their inbox.
+        setAuthNotice("Account created — please confirm your email (check your inbox), then log in. Your free month is saved with your account.");
+        setAuthMode("login");
+        return;
+      }
+      if (data.user && data.session) {
+        const user = { id: data.user.id, email: data.user.email || email };
+        const { error: pErr } = await supabase.from("profiles").insert({
+          id: user.id,
+          business_name: business,
+          owner_name: name,
+          trade: input.trade,
+          reply_to_email: email,
+          booking_link: "",
+          trial_start: new Date().toISOString(),
+        });
+        if (pErr) setSyncIssue(true); // non-blocking: sync upserts the profile later
+        setCloudUser(user);
+        const ok = await hydrateCloudUser(user, state);
+        if (!ok && !state) {
+          setAuthError("Your account was created, but we could not load it just now — please log in.");
+          return;
+        }
+        setSession(true);
+        setView("dashboard");
+      }
+    } catch {
+      setAuthError("Could not create your account — please check your connection and try again.");
+    } finally {
+      setAuthBusy(false);
+    }
   }
 
-  function handleLogin(e: React.FormEvent<HTMLFormElement>) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email") || "");
     const password = String(fd.get("password") || "");
-    const err = validateLogin(email, password, state ? state.account : null);
-    if (err) { setAuthError(err); return; }
+    if (!supabase || email.trim().toLowerCase() === DEMO_EMAIL) {
+      const err = validateLogin(email, password, state ? state.account : null);
+      if (err) { setAuthError(err); return; }
+      setAuthError("");
+      setSession(true);
+      setView("dashboard");
+      return;
+    }
+    setAuthBusy(true);
     setAuthError("");
-    setSession(true);
-    setView("dashboard");
+    setAuthNotice("");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (!error && data.user) {
+        const user = { id: data.user.id, email: data.user.email || email.trim() };
+        setCloudUser(user);
+        const ok = await hydrateCloudUser(user, state);
+        if (!ok && !state) {
+          setAuthError("You are logged in, but we could not load your data just now — please try again in a moment.");
+          return;
+        }
+        setSession(true);
+        setView("dashboard");
+        return;
+      }
+      // Testing-build migration: an on-device account with these exact
+      // credentials is moved to a cloud account on first cloud login.
+      if (error && state && !isDemoState(state) && validateLogin(email, password, state.account) === null) {
+        const su = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { name: state.account.name, business_name: state.account.businessName, trade: state.account.trade } },
+        });
+        if (su.data.user && su.data.session) {
+          const user = { id: su.data.user.id, email: su.data.user.email || email.trim() };
+          await supabase.from("profiles").insert({
+            id: user.id,
+            business_name: state.account.businessName,
+            owner_name: state.account.name,
+            trade: state.account.trade,
+            reply_to_email: email.trim(),
+            booking_link: state.profile.bookingLink || "",
+            trial_start: state.account.createdAt, // the original free month is preserved
+          });
+          setCloudUser(user);
+          await hydrateCloudUser(user, state);
+          setSession(true);
+          setView("dashboard");
+          return;
+        }
+        if (su.data.user && !su.data.session) {
+          setAuthNotice("Your account is moving to the cloud. Please confirm your email (check your inbox), then log in again — the quotes saved on this device will be imported then.");
+          return;
+        }
+        setAuthError("Email or password doesn't match your cloud account. The password saved on this device is different — try the password you used for your cloud account.");
+        return;
+      }
+      if (error) { setAuthError(friendlyAuthError(error.message, "login")); return; }
+      setAuthError("Email or password doesn't match your account. Check both and try again — or sign up if you are new.");
+    } catch {
+      setAuthError("Could not log you in — please check your connection and try again.");
+    } finally {
+      setAuthBusy(false);
+    }
   }
 
   function goAuth(mode: "signup" | "login") {
     setAuthMode(mode);
     setAuthError("");
+    setAuthNotice("");
     requestAnimationFrame(() => {
       document.getElementById("get-started")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
 
-  function logout() {
-    // Data stays saved on this device; logging in again restores it.
+  async function logout() {
+    // Data stays saved (in the cloud, and cached on this device);
+    // logging in again restores it.
+    if (supabase && cloudUser) {
+      try { await supabase.auth.signOut(); } catch { /* ignore */ }
+      setCloudUser(null);
+      setCloudReady(false);
+    }
     setSession(false);
+  }
+
+  async function handleDeleteAll() {
+    try {
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem(LS_REPLY_KEY);
+      localStorage.removeItem(LS_MIGRATED_KEY);
+    } catch { /* ignore */ }
+    setReplyLog({});
+    setMigrated(false);
+    if (supabase && cloudUser) {
+      try { await supabase.auth.signOut(); } catch { /* ignore */ }
+      setCloudUser(null);
+      setCloudReady(false);
+    }
+    lastSyncRef.current = "";
+    setSession(false);
+    setState(null);
   }
 
 
@@ -303,7 +611,17 @@ export default function Home() {
             {view === "campaign" && <CampaignView state={state} update={update} go={setView} />}
             {view === "send" && <SendView state={state} update={update} />}
             {view === "replies" && <RepliesView state={state} update={update} noteReply={noteReply} />}
-            {view === "settings" && <SettingsView state={state} update={update} setState={setState} />}
+            {view === "settings" && (
+              <SettingsView
+                state={state}
+                update={update}
+                setState={setState}
+                cloudEmail={cloudUser && state.account.email.toLowerCase() === cloudUser.email.toLowerCase() ? cloudUser.email : null}
+                syncIssue={syncIssue}
+                migrated={migrated}
+                onDeleteAll={handleDeleteAll}
+              />
+            )}
           </main>
         </div>
       </div>
@@ -486,7 +804,9 @@ export default function Home() {
                 <span className="eyebrow" style={{ display: "block", marginBottom: 12 }}>Get started</span>
                 <h2>Your first month is on us</h2>
                 <p className="muted">Every account starts with a full month free. No pricing and no card during testing — after the free month the plan will be $10/month.</p>
-                <p className="small muted">Testing build note: this early version keeps your account and quotes on this device only. Cloud accounts and automatic sending arrive before the public launch.</p>
+                <p className="small muted">{cloudEnabled
+                  ? "Cloud accounts are live: sign up once and your quotes are saved securely in your account — log in from any device and they are there. Sending still happens from your own Gmail, one click per email."
+                  : "Testing build note: this early version keeps your account and quotes on this device only. Cloud accounts and automatic sending arrive before the public launch."}</p>
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <button className={`btn small ${authMode === "signup" ? "" : "grey"}`} onClick={() => setAuthMode("signup")}>Sign up</button>
                   <button className={`btn small ${authMode === "login" ? "" : "grey"}`} onClick={() => setAuthMode("login")}>Log in</button>
@@ -525,10 +845,11 @@ export default function Home() {
                         <input name="password" type="password" placeholder=" " required />
                         <label>Password</label>
                       </div>
-                      <p className="fhint">At least 4 characters.</p>
+                      <p className="fhint">{cloudEnabled ? "At least 6 characters." : "At least 4 characters."}</p>
                     </div>
                     {authError && <p className="form-error">{authError}</p>}
-                    <button className="btn" style={{ width: "100%" }} type="submit">Create my free account</button>
+                    {authNotice && <p className="ok">{authNotice}</p>}
+                    <button className="btn" style={{ width: "100%" }} type="submit" disabled={authBusy}>{authBusy ? "Creating your account…" : "Create my free account"}</button>
                   </form>
                 ) : (
                   <form className="pform" onSubmit={handleLogin}>
@@ -541,8 +862,11 @@ export default function Home() {
                       <label>Password</label>
                     </div>
                     {authError && <p className="form-error">{authError}</p>}
-                    <button className="btn" style={{ width: "100%" }} type="submit">Log in</button>
-                    <p className="small muted" style={{ marginBottom: 0 }}>Accounts live on this device in this testing build. No account here yet? Sign up or try the demo.</p>
+                    {authNotice && <p className="ok">{authNotice}</p>}
+                    <button className="btn" style={{ width: "100%" }} type="submit" disabled={authBusy}>{authBusy ? "Logging in…" : "Log in"}</button>
+                    <p className="small muted" style={{ marginBottom: 0 }}>{cloudEnabled
+                      ? "Cloud account — log in from any device and your quotes are there. No account yet? Sign up or try the demo."
+                      : "Accounts live on this device in this testing build. No account here yet? Sign up or try the demo."}</p>
                   </form>
                 )}
                 <button className="btn ghost" style={{ width: "100%", marginTop: 12 }} onClick={() => { setState(demoState()); setReplyLog(demoReplyLog()); setSession(true); }}>Load the demo account with sample quotes</button>
@@ -1076,7 +1400,15 @@ function RepliesView({ state, update, noteReply }: { state: AppState; update: (f
 }
 
 /* ---------------- Settings ---------------- */
-function SettingsView({ state, update, setState }: { state: AppState; update: (fn: (s: AppState) => AppState) => void; setState: (s: AppState | null) => void }) {
+function SettingsView({ state, update, setState, cloudEmail, syncIssue, migrated, onDeleteAll }: {
+  state: AppState;
+  update: (fn: (s: AppState) => AppState) => void;
+  setState: (s: AppState | null) => void;
+  cloudEmail: string | null;
+  syncIssue: boolean;
+  migrated: boolean;
+  onDeleteAll: () => void;
+}) {
   const [saved, setSaved] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -1154,7 +1486,15 @@ function SettingsView({ state, update, setState }: { state: AppState; update: (f
         </div>
         <div className="card">
           <h3>Your data & backup</h3>
-          <p className="small muted">Testing build: your account, quotes and campaigns are stored in this browser on this device only — nothing is uploaded anywhere. Download a backup before switching devices or clearing browser data.</p>
+          {cloudEmail ? (
+            <>
+              <p className="small muted">Cloud account — signed in as <strong>{cloudEmail}</strong>. Your quotes, campaigns and replies sync to your secure cloud account, so they are there on any device you log in from. A copy is also kept in this browser as an offline cache.</p>
+              {syncIssue && <p className="small" style={{ color: "#b3261e" }}>Cloud sync issue — your latest changes are saved on this device and will be retried automatically. Nothing is lost.</p>}
+              {migrated && <p className="small muted">Good news: the quotes and campaigns you saved on this device during the testing build were imported into your cloud account.</p>}
+            </>
+          ) : (
+            <p className="small muted">Testing build: your account, quotes and campaigns are stored in this browser on this device only — nothing is uploaded anywhere. Download a backup before switching devices or clearing browser data.</p>
+          )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button className="btn" onClick={exportBackup}>Download backup (JSON)</button>
             <button className="btn grey" onClick={() => importRef.current?.click()}>Restore backup</button>
@@ -1163,7 +1503,8 @@ function SettingsView({ state, update, setState }: { state: AppState; update: (f
           <h3 style={{ marginTop: 22 }}>Plan</h3>
           <p className="small muted">Free trial: 30 days from sign-up ({trialDaysRemaining(state.account.createdAt)} days left). After your free month, QuoteRevive will be $10/month — no card required now, and paid plans are not switched on during testing.</p>
           <h3 style={{ marginTop: 22 }}>Danger zone</h3>
-          <button className="btn grey" onClick={() => { if (confirm("Delete ALL QuoteRevive data on this device? Download a backup first if you need it.")) { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_REPLY_KEY); setState(null); } }}>Delete all my data on this device</button>
+          <button className="btn grey" onClick={() => { if (confirm("Delete ALL QuoteRevive data on this device? Download a backup first if you need it.")) onDeleteAll(); }}>Delete all my data on this device</button>
+          {cloudEmail && <p className="small muted" style={{ marginTop: 8 }}>This clears this device and logs you out — your cloud account and its saved data stay as they are.</p>}
         </div>
       </div>
     </div>

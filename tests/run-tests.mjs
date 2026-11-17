@@ -18,19 +18,24 @@ rmSync(buildDir, { recursive: true, force: true });
 mkdirSync(buildDir, { recursive: true });
 execFileSync(
   join(root, "node_modules", ".bin", "tsc"),
-  ["app/lib.ts", "--outDir", buildDir, "--module", "es2022", "--target", "es2022",
+  ["app/lib.ts", "app/cloud.ts", "--outDir", buildDir, "--module", "es2022", "--target", "es2022",
    "--moduleResolution", "bundler", "--skipLibCheck", "--declaration", "false", "--sourceMap", "false"],
   { cwd: root, stdio: "inherit" }
 );
 writeFileSync(join(buildDir, "package.json"), JSON.stringify({ type: "module" }));
 
 const lib = await import(pathToFileURL(join(buildDir, "lib.js")).href);
+const cloud = await import(pathToFileURL(join(buildDir, "cloud.js")).href);
 
 let totalPass = 0, totalFail = 0;
-for (const [name, file] of [["Logic suite (44 assertions)", "./logic.test.mjs"], ["Extended suite", "./extended.test.mjs"]]) {
+for (const [name, file, arg] of [
+  ["Logic suite (44 assertions)", "./logic.test.mjs", lib],
+  ["Extended suite", "./extended.test.mjs", lib],
+  ["Cloud suite", "./cloud.test.mjs", { lib, cloud }],
+]) {
   const suite = (await import(new URL(file, import.meta.url))).default;
   const harness = createHarness(name);
-  suite(lib, harness);
+  suite(arg, harness);
   const { pass, fail } = harness.report();
   totalPass += pass; totalFail += fail;
 }
