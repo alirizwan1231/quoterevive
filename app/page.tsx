@@ -13,6 +13,7 @@ import {
   normalizeStateIds, stateNeedsIdNormalization,
 } from "./cloud";
 import { useReveal, useCountUp } from "./motion";
+import { parsePastedQuotes } from "./paste";
 
 /** Odometer-style animated number (Blueprint Aurora count-up). */
 function CountUp({ value, format }: { value: number; format?: (n: number) => string }) {
@@ -1244,11 +1245,23 @@ function UpcomingSends({ state }: { state: AppState }) {
 }
 
 /* ---------------- Quotes ---------------- */
+const HELP_MAILTO =
+  "mailto:alis5597153@gmail.com?subject=" + encodeURIComponent("QuoteRevive — please add my list") +
+  "&body=" + encodeURIComponent("Hi,\n\nI use QuoteRevive and I'd like you to add my quotes list to my account for me.\n\nMy QuoteRevive account email is: \n\nI'm attaching my list — it might be a photo of my notebook page, an Excel file, or whatever I have.\n\nThanks!");
+
 function QuotesView({ state, update, noteReply }: { state: AppState; update: (fn: (s: AppState) => AppState) => void; noteReply: (quoteId: string, active: boolean) => void }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("All");
   const [report, setReport] = useState<ImportReport | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [importTab, setImportTab] = useState<"csv" | "paste" | "help">("csv");
+  const [pasteText, setPasteText] = useState("");
+  const [removedPasteRows, setRemovedPasteRows] = useState<ReadonlySet<number>>(new Set());
+  const [pasteReport, setPasteReport] = useState<{ added: number; duplicates: number; unread: number } | null>(null);
+  const parsedPaste = useMemo(() => parsePastedQuotes(pasteText), [pasteText]);
+  const pasteRows = parsedPaste.rows
+    .map((row, idx) => ({ row, idx }))
+    .filter(({ idx }) => !removedPasteRows.has(idx));
 
   const visible = state.quotes.filter((q) =>
     (filter === "All" || q.status === filter) &&
@@ -1282,6 +1295,31 @@ function QuotesView({ state, update, noteReply }: { state: AppState; update: (fn
     });
   }
 
+  function addPastedQuotes() {
+    const seen = new Set(state.quotes.map((q) => q.email.toLowerCase()));
+    const fresh: Quote[] = [];
+    let dups = 0;
+    for (const { row } of pasteRows) {
+      const key = row.email.toLowerCase();
+      if (seen.has(key)) { dups++; continue; }
+      seen.add(key);
+      fresh.push({
+        id: uid(),
+        name: row.name,
+        email: row.email,
+        amount: row.amount,
+        date: row.date || todayISO(),
+        jobType: row.jobType || "Project",
+        status: "New",
+        reply: "",
+      });
+    }
+    if (fresh.length) update((s) => ({ ...s, quotes: [...fresh, ...s.quotes] }));
+    setPasteReport({ added: fresh.length, duplicates: dups, unread: parsedPaste.problems.length });
+    setPasteText("");
+    setRemovedPasteRows(new Set());
+  }
+
   function downloadTemplate() {
     const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
     const a = document.createElement("a");
@@ -1305,23 +1343,124 @@ function QuotesView({ state, update, noteReply }: { state: AppState; update: (fn
     <div>
       <div className="grid c2" style={{ alignItems: "start" }}>
         <div className="card">
-          <h3>Import from CSV</h3>
-          <p className="small muted">Columns: name, email, amount, quote date, job type. Jobber and QuickBooks exports work.</p>
-          <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) onCSV(f); e.target.value = ""; }} />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button className="btn" onClick={() => fileRef.current?.click()}>Upload CSV</button>
-            <button className="btn grey" onClick={downloadTemplate}>Download sample CSV</button>
+          <h3>Add your dead quotes</h3>
+          <p className="small muted">Three ways in — pick whichever is easiest for you. All we need is a name, an email, an amount and the job.</p>
+          <div className="seg-pills import-tabs" role="tablist" aria-label="Import method">
+            <button type="button" role="tab" aria-selected={importTab === "csv"} className={importTab === "csv" ? "active" : ""} onClick={() => setImportTab("csv")}>Upload CSV</button>
+            <button type="button" role="tab" aria-selected={importTab === "paste"} className={importTab === "paste" ? "active" : ""} onClick={() => setImportTab("paste")}>Paste your list</button>
+            <button type="button" role="tab" aria-selected={importTab === "help"} className={importTab === "help" ? "active" : ""} onClick={() => setImportTab("help")}>We add it for you</button>
           </div>
-          {report && (
-            <div className="ok" style={{ marginTop: 14 }}>
-              <strong>Import report:</strong> {report.added.length} added · {report.duplicates} duplicate{report.duplicates === 1 ? "" : "s"} skipped · {report.badRows.length} bad row{report.badRows.length === 1 ? "" : "s"}
-              {report.badRows.length > 0 && (
-                <ul className="small" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                  {report.badRows.slice(0, 8).map((b, i) => <li key={i}>Row {b.row}: {b.reason}</li>)}
-                </ul>
+
+          {importTab === "csv" && (
+            <div>
+              <p className="small muted">Columns: name, email, amount, quote date, job type. Jobber and QuickBooks exports work.</p>
+              <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) onCSV(f); e.target.value = ""; }} />
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button className="btn" onClick={() => fileRef.current?.click()}>Upload CSV</button>
+                <button className="btn grey" onClick={downloadTemplate}>Download sample CSV</button>
+              </div>
+              {report && (
+                <div className="ok" style={{ marginTop: 14 }}>
+                  <strong>Import report:</strong> {report.added.length} added · {report.duplicates} duplicate{report.duplicates === 1 ? "" : "s"} skipped · {report.badRows.length} bad row{report.badRows.length === 1 ? "" : "s"}
+                  {report.badRows.length > 0 && (
+                    <ul className="small" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                      {report.badRows.slice(0, 8).map((b, i) => <li key={i}>Row {b.row}: {b.reason}</li>)}
+                    </ul>
+                  )}
+                </div>
               )}
             </div>
           )}
+
+          {importTab === "paste" && (
+            <div>
+              <p className="small muted">Copy your quotes straight from Excel or Google Sheets — or just type one customer per line, like the examples in the box. We read the lines and sort out the names, emails and amounts for you.</p>
+              <textarea
+                value={pasteText}
+                onChange={(e) => { setPasteText(e.target.value); setRemovedPasteRows(new Set()); setPasteReport(null); }}
+                placeholder={"James Miller, james.miller@example.com, 8400, Kitchen remodel\nSarah Thompson — sarah.t@example.com — $3,200 — Bathroom tiling\nDavid Garcia  david.garcia@example.com  12500  Roof replacement"}
+                rows={6}
+                aria-label="Paste your quotes list"
+              />
+              {pasteReport && (
+                <div className="ok" style={{ marginTop: 14 }}>
+                  <strong>Done:</strong> {pasteReport.added} added · {pasteReport.duplicates} duplicate{pasteReport.duplicates === 1 ? "" : "s"} skipped · {pasteReport.unread} line{pasteReport.unread === 1 ? "" : "s"} could not be read
+                </div>
+              )}
+              {pasteText.trim() !== "" && (
+                <div style={{ marginTop: 14 }}>
+                  {pasteRows.length > 0 ? (
+                    <div>
+                      <div className="table-scroll paste-preview">
+                        <table>
+                          <thead><tr><th>Customer</th><th>Amount</th><th>Job</th><th></th></tr></thead>
+                          <tbody>
+                            {pasteRows.map(({ row, idx }) => (
+                              <tr key={idx}>
+                                <td><strong>{row.name}</strong><br /><span className="small muted">{row.email}</span></td>
+                                <td>{money(row.amount)}</td>
+                                <td>{row.jobType || "Project"}</td>
+                                <td><button type="button" className="btn small grey" onClick={() => setRemovedPasteRows((prev) => new Set(prev).add(idx))}>Remove</button></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <button type="button" className="btn" style={{ marginTop: 12 }} onClick={addPastedQuotes}>Add {pasteRows.length} quote{pasteRows.length === 1 ? "" : "s"}</button>
+                    </div>
+                  ) : (
+                    <p className="small muted">Nothing we can read yet — each line needs a name, an email and an amount.</p>
+                  )}
+                  {parsedPaste.problems.length > 0 && (
+                    <div className="notice" style={{ marginTop: 12 }}>
+                      <strong>{parsedPaste.problems.length} line{parsedPaste.problems.length === 1 ? "" : "s"} could not be read:</strong>
+                      <ul className="small" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                        {parsedPaste.problems.slice(0, 8).map((p, i) => <li key={i}>Line {p.line}: {p.reason} — <span className="muted">“{p.text}”</span></li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {importTab === "help" && (
+            <div>
+              <p className="small muted">Not sure how to do any of this? No problem at all. Send us your list — a photo of your notebook page, an Excel file, anything — and we will add it to your account for free during the testing phase.</p>
+              <a className="btn" href={HELP_MAILTO}>Email us your list</a>
+              <p className="small muted" style={{ marginTop: 10 }}>The button opens your email app with everything filled in — just attach your list and press send.</p>
+            </div>
+          )}
+
+          <details className="guide-box">
+            <summary>Where is your list?</summary>
+            <div className="guide-grid">
+              <div>
+                <strong>Excel or Google Sheets</strong>
+                <ol>
+                  <li>Open your sheet and select the rows with your quotes.</li>
+                  <li>Copy them (Ctrl+C), then paste them in the “Paste your list” tab above — no file needed.</li>
+                  <li>Or use File → Save As → CSV, then the “Upload CSV” tab.</li>
+                </ol>
+              </div>
+              <div>
+                <strong>Jobber, QuickBooks or other software</strong>
+                <ol>
+                  <li>Open your quotes list in the software.</li>
+                  <li>Look for Export or Download in your quotes list and choose CSV.</li>
+                  <li>Upload that file in the “Upload CSV” tab above.</li>
+                </ol>
+              </div>
+              <div>
+                <strong>Paper notebook or WhatsApp</strong>
+                <ol>
+                  <li>Type each customer as one line in the “Paste your list” tab: Name, email, amount, job.</li>
+                  <li>Check the preview — we read the lines for you.</li>
+                  <li>Or use “We add it for you” above and send us a photo of the page.</li>
+                </ol>
+              </div>
+            </div>
+          </details>
         </div>
         <div className="card">
           <h3>Add one quote manually</h3>
@@ -1383,7 +1522,7 @@ function QuotesView({ state, update, noteReply }: { state: AppState; update: (fn
                 <td><button className="btn small grey" onClick={() => update((s) => ({ ...s, quotes: s.quotes.filter((x) => x.id !== q.id), touches: s.touches.filter((t) => t.quoteId !== q.id) }))}>Delete</button></td>
               </tr>
             ))}
-            {visible.length === 0 && <tr><td colSpan={6} className="muted">No quotes match. Import a CSV or add one above.</td></tr>}
+            {visible.length === 0 && <tr><td colSpan={6} className="muted">No quotes match. Add quotes above — upload a file, paste your list, or add one by hand.</td></tr>}
           </tbody>
         </table>
       </div>

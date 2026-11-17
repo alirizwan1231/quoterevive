@@ -830,6 +830,30 @@ footer .logo { font-size: 1.2rem; }
   .app-biz { display: none; }
 }
 
+/* quotes import panel — method tabs, paste preview, "Where is your list?" guide */
+.import-tabs { margin: 14px 0 18px; }
+.paste-preview { border: 1px solid var(--line); border-radius: var(--r-md); }
+.paste-preview table { font-size: 0.88rem; }
+.paste-preview td { word-break: break-word; }
+.guide-box { margin-top: 20px; border-top: 1px solid var(--line-soft); padding-top: 14px; }
+.guide-box summary {
+  cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; color: var(--ink); font-size: 0.95rem;
+}
+.guide-box summary::-webkit-details-marker { display: none; }
+.guide-box summary::after {
+  content: "+"; margin-left: auto; flex: none;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent-dark);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; transition: transform 0.25s var(--ease-spring);
+}
+.guide-box[open ] summary::after { transform: rotate(45deg); }
+.guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-top: 14px; }
+.guide-grid strong { display: block; color: var(--ink); font-size: 0.92rem; margin-bottom: 6px; }
+.guide-grid ol { margin: 0; padding-left: 18px; font-size: 0.86rem; color: var(--muted); display: grid; gap: 4px; }
+
 /* reduced motion: keep opacity fades only, never hide content */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

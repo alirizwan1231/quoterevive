@@ -1,7 +1,8 @@
 // QuoteRevive test runner.
-// Compiles app/lib.ts with the project's own TypeScript into tests/.build/
-// (gitignored), then runs the logic suite (44 assertions) and the extended
-// suite against the compiled module — i.e. against the exact code the app
+// Compiles app/lib.ts, app/cloud.ts and app/paste.ts with the project's own
+// TypeScript into tests/.build/ (gitignored), then runs the logic suite
+// (44 assertions), the extended suite, the cloud suite and the paste suite
+// against the compiled modules — i.e. against the exact code the app
 // ships, not a copy.
 //
 // Usage:  npm test        (or: node tests/run-tests.mjs)
@@ -18,7 +19,7 @@ rmSync(buildDir, { recursive: true, force: true });
 mkdirSync(buildDir, { recursive: true });
 execFileSync(
   join(root, "node_modules", ".bin", "tsc"),
-  ["app/lib.ts", "app/cloud.ts", "--outDir", buildDir, "--module", "es2022", "--target", "es2022",
+  ["app/lib.ts", "app/cloud.ts", "app/paste.ts", "--outDir", buildDir, "--module", "es2022", "--target", "es2022",
    "--moduleResolution", "bundler", "--skipLibCheck", "--declaration", "false", "--sourceMap", "false"],
   { cwd: root, stdio: "inherit" }
 );
@@ -26,12 +27,14 @@ writeFileSync(join(buildDir, "package.json"), JSON.stringify({ type: "module" })
 
 const lib = await import(pathToFileURL(join(buildDir, "lib.js")).href);
 const cloud = await import(pathToFileURL(join(buildDir, "cloud.js")).href);
+const paste = await import(pathToFileURL(join(buildDir, "paste.js")).href);
 
 let totalPass = 0, totalFail = 0;
 for (const [name, file, arg] of [
   ["Logic suite (44 assertions)", "./logic.test.mjs", lib],
   ["Extended suite", "./extended.test.mjs", lib],
   ["Cloud suite", "./cloud.test.mjs", { lib, cloud }],
+  ["Paste suite", "./paste.test.mjs", paste],
 ]) {
   const suite = (await import(new URL(file, import.meta.url))).default;
   const harness = createHarness(name);
